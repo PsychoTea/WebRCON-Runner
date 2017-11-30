@@ -53,11 +53,11 @@ namespace WebRCON_Runner
 
         public void SendCommand(string command)
         {
-            Dictionary<string, object> packet = new Dictionary<string, object>()
+            var packet = new
             {
-                { "Identifier", 1},
-                {"Message", command },
-                { "Name", "WebRCON-Runner" }
+                Identifier = 1,
+                Message = command,
+                Name = "WebRCON-Runner"
             };
 
             string contents = JsonConvert.SerializeObject(packet);
