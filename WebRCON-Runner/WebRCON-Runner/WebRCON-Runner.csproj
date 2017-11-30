@@ -56,5 +56,9 @@
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Dependencies\Newtonsoft.Json.dll" />
+    <EmbeddedResource Include="Dependencies\websocket-sharp.dll" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

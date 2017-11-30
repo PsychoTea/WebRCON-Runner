@@ -1,6 +1,8 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Threading;
 
 namespace WebRCON_Runner
@@ -16,6 +18,8 @@ namespace WebRCON_Runner
 
         public static void Main(string[] args)
         {
+            AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+
             if (args.Length < 4)
             {
                 PrintUsage();
@@ -41,6 +45,18 @@ namespace WebRCON_Runner
             connection = new Connection(x => ConnectionOutput(x), ipAddress, port, password);
 
             connection.Connect(() => OnConnection());
+        }
+
+        private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            string name = new AssemblyName(args.Name).Name;
+
+            using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"WebRCON_Runner.Dependencies.{name}.dll"))
+            {
+                byte[] data = new BinaryReader(stream).ReadBytes((int)stream.Length);
+
+                return Assembly.Load(data);
+            }
         }
 
         private static void ConnectionOutput(string message)
