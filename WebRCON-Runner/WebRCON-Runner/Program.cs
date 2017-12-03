@@ -1,9 +1,9 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Threading;
+using Newtonsoft.Json;
 
 namespace WebRCON_Runner
 {
@@ -15,6 +15,13 @@ namespace WebRCON_Runner
         private static int port;
         private static string password;
         private static string command;
+        private static string listenFor;
+
+        // Kind of band-aid way to stop the program closing
+        // beofre we've recieved the 'listenFor' match
+        private static Thread thread;
+
+        private static bool ListenForEnabled => !string.IsNullOrEmpty(listenFor);
 
         public static void Main(string[] args)
         {
@@ -40,9 +47,25 @@ namespace WebRCON_Runner
 
             password = args[2];
 
-            command = string.Join(" ", args.Skip(3).ToArray());
-            
-            connection = new Connection(x => ConnectionOutput(x), ipAddress, port, password);
+            command = args[3];
+
+            if (args.Length > 4)
+            {
+                listenFor = args[4];
+
+                thread = new Thread(() => RunThread());
+                thread.Start();
+            }
+
+            Console.WriteLine($"IP: {ipAddress}:{port}");
+            Console.WriteLine($"Command: {command}");
+
+            if (ListenForEnabled)
+            {
+                Console.WriteLine($"Listening For: {listenFor}");
+            }
+
+            connection = new Connection((x, y) => ConnectionOutput(x, y), ipAddress, port, password);
 
             connection.Connect(() => OnConnection());
         }
@@ -59,14 +82,41 @@ namespace WebRCON_Runner
             }
         }
 
-        private static void ConnectionOutput(string message)
+        private static void ConnectionOutput(string message, bool socketMessage)
         {
-            Console.WriteLine($"[Connection] {message}");
+            RCONMessage rconMessage = null;
+            try
+            {
+                rconMessage = JsonConvert.DeserializeObject<RCONMessage>(message);
+            }
+            catch (Exception ex) { }
+
+            Console.WriteLine("[Connection] " + (socketMessage ? "Message recieved: " : "") + (rconMessage?.Message ?? message));
+
+            if (ListenForEnabled && rconMessage != null)
+            {
+                string lowerMessage = rconMessage.Message.ToLower();
+
+                if (lowerMessage.Contains(listenFor.ToLower()))
+                {
+                    Console.WriteLine($"Recieved listen-for message '{rconMessage.Message}'. Closing...");
+
+                    Thread.Sleep(1000);
+
+                    connection.Disconnect();
+
+                    Console.WriteLine("Closed.");
+
+                    thread.Abort();
+                }
+            }
         }
 
-        public static void OnConnection()
+        private static void OnConnection()
         {
             connection.SendCommand(command);
+
+            if (ListenForEnabled) return;
 
             Console.WriteLine($"Finished. Closing...");
 
@@ -77,11 +127,18 @@ namespace WebRCON_Runner
             connection.Disconnect();
         }
 
+        private static void RunThread()
+        {
+            while (true)
+            {
+            }
+        }
+
         private static void PrintUsage()
         {
             string programName = AppDomain.CurrentDomain.FriendlyName;
 
-            Console.WriteLine($"Usage: {programName} {{ip}} {{port}} {{password}} {{command...}}");
+            Console.WriteLine($"Usage: {programName} {{ip}} {{port}} {{password}} \"{{command}}\" \"[listen-for]\"");
         }
     }
 }

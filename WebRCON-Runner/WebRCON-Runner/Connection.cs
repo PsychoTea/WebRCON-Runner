@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Net;
 using Newtonsoft.Json;
 using WebSocketSharp;
@@ -8,7 +7,7 @@ namespace WebRCON_Runner
 {
     class Connection
     {
-        private Action<string> outputFunction;
+        private Action<string, bool> outputFunction;
         private Action connectedCallback;
 
         private IPAddress ipAddress;
@@ -17,7 +16,7 @@ namespace WebRCON_Runner
 
         private WebSocket socket;
 
-        public Connection(Action<string> outputFunction, IPAddress ipAddress, int port, string password)
+        public Connection(Action<string, bool> outputFunction, IPAddress ipAddress, int port, string password)
         {
             this.outputFunction = outputFunction;
             this.ipAddress = ipAddress;
@@ -41,7 +40,7 @@ namespace WebRCON_Runner
             socket.OnClose += Socket_OnClose;
             socket.OnError += Socket_OnError;
 
-            outputFunction.Invoke($"Connecting to {wsURL}...");
+            outputFunction.Invoke($"Connecting to {wsURL}...", false);
 
             socket.Connect();
         }
@@ -50,6 +49,8 @@ namespace WebRCON_Runner
         {
             socket?.Close();
         }
+
+        public bool IsOpen() => socket.ReadyState == WebSocketState.Open;
 
         public void SendCommand(string command)
         {
@@ -64,31 +65,30 @@ namespace WebRCON_Runner
 
             socket.Send(contents);
 
-            outputFunction.Invoke($"Sent command: {command}");
+            outputFunction.Invoke($"Sent command: {command}", false);
         }
 
         private void Socket_OnOpen(object sender, EventArgs e)
         {
-            outputFunction.Invoke($"Connection opened!");
+            outputFunction.Invoke($"Connection opened!", false);
 
             connectedCallback.Invoke();
         }
 
         private void Socket_OnClose(object sender, CloseEventArgs e)
         {
-            outputFunction.Invoke($"Connection closed!");
+            outputFunction.Invoke($"Connection closed!", false);
         }
 
         private void Socket_OnMessage(object sender, MessageEventArgs e)
         {
-            outputFunction.Invoke($"Message recieved:");
-            outputFunction.Invoke(e.Data);
+            outputFunction.Invoke(e.Data, true);
         }
 
         private void Socket_OnError(object sender, ErrorEventArgs e)
         {
-            outputFunction.Invoke($"Connection error: {e.Message}");
-            outputFunction.Invoke(e.Exception.ToString());
+            outputFunction.Invoke($"Connection error: {e.Message}", false);
+            outputFunction.Invoke(e.Exception.ToString(), false);
         }
     }
 }
